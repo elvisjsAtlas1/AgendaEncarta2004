@@ -184,6 +184,15 @@ data class Actividad(
     val sesionCurso: String,
     val materiales: String
 )
+
+//Agregar en la enciclopedia la informacion necesaria
+
+data class CarpetaEnciclopedia(
+    val nombreCurso: String,
+    val sesiones: MutableList<String> = mutableListOf() // más adelante pondrás documentos, imágenes, etc.
+)
+
+
 @Composable
 fun PantallaAgenda() {
     var cursos by remember { mutableStateOf(listOf<Curso>()) }
@@ -193,6 +202,13 @@ fun PantallaAgenda() {
         Actividad("Miércoles", "Laboratorio", "Química", "Sesión 1", "Imagen")
     )) }
 
+    var mostrarDialogo by remember { mutableStateOf(false) }
+    var nombreCurso by remember { mutableStateOf("") }
+    var docenteCurso by remember { mutableStateOf("") }
+    var diaCurso by remember { mutableStateOf("0") }   // 0 = lunes
+    var horaInicio by remember { mutableStateOf("8") }
+    var horaFin by remember { mutableStateOf("10") }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -200,8 +216,8 @@ fun PantallaAgenda() {
             .verticalScroll(rememberScrollState())
     ) {
 
-        // Botón para agregar curso
-        Button(onClick = { /* abrir formulario de agregar curso */ }) {
+        // Botón para abrir formulario de agregar curso
+        Button(onClick = { mostrarDialogo = true }) {
             Text("Crear Curso")
         }
 
@@ -213,6 +229,7 @@ fun PantallaAgenda() {
 
         Spacer(modifier = Modifier.height(24.dp))
 
+        // Aquí iría tu bloque de actividades
         // Actividades Semanales con scroll horizontal y vertical
         Text("Actividades Semanales", style = MaterialTheme.typography.titleMedium)
         Box(
@@ -262,6 +279,49 @@ fun PantallaAgenda() {
             }
         }
     }
+
+    // Diálogo para crear curso
+    if (mostrarDialogo) {
+        AlertDialog(
+            onDismissRequest = { mostrarDialogo = false },
+            title = { Text("Nuevo Curso") },
+            text = {
+                Column {
+                    OutlinedTextField(value = nombreCurso, onValueChange = { nombreCurso = it }, label = { Text("Nombre") })
+                    OutlinedTextField(value = docenteCurso, onValueChange = { docenteCurso = it }, label = { Text("Docente") })
+                    OutlinedTextField(value = diaCurso, onValueChange = { diaCurso = it }, label = { Text("Día (0=Lun,1=Mar,2=Mi,3=J,4=V)") })
+                    OutlinedTextField(value = horaInicio, onValueChange = { horaInicio = it }, label = { Text("Hora Inicio (ej: 8)") })
+                    OutlinedTextField(value = horaFin, onValueChange = { horaFin = it }, label = { Text("Hora Fin (ej: 10)") })
+                }
+            },
+            confirmButton = {
+                Button(onClick = {
+                    cursos = cursos + Curso(
+                        nombre = nombreCurso,
+                        docente = docenteCurso,
+                        dia = diaCurso.toIntOrNull() ?: 0,
+                        horaInicio = horaInicio.toIntOrNull() ?: 8,
+                        horaFin = horaFin.toIntOrNull() ?: 10
+                    )
+                    mostrarDialogo = false
+                    nombreCurso = ""
+                    docenteCurso = ""
+                    diaCurso = "0"
+                    horaInicio = "8"
+                    horaFin = "10"
+                }) {
+                    Text("Guardar")
+                }
+            },
+            dismissButton = {
+                Button(onClick = { mostrarDialogo = false }) {
+                    Text("Cancelar")
+                }
+            }
+        )
+
+    }
+
 }
 
 
