@@ -12,8 +12,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -57,7 +55,8 @@ class MainActivity : ComponentActivity() {
 fun MyAppConHamburguesa() {
     var selectedScreen by remember { mutableStateOf("inicio") }
     var menuAbierto by remember { mutableStateOf(true) }
-
+    var enciclopedia by remember { mutableStateOf(listOf<CarpetaEnciclopedia>()) }
+    var cursos by remember { mutableStateOf(listOf<Curso>()) }
     Box(modifier = Modifier.fillMaxSize()) {
 
         Row(modifier = Modifier.fillMaxSize()) {
@@ -125,8 +124,16 @@ fun MyAppConHamburguesa() {
             Box(modifier = Modifier.fillMaxSize().padding(16.dp)) {
                 when(selectedScreen) {
                     "inicio" -> PantallaInicio()
-                    "agenda" -> PantallaAgenda()
-                    "enciclopedia" -> PantallaEnciclopedia()
+                    "agenda" -> PantallaAgenda(
+                        cursos = cursos,
+                        setCursos = { cursos = it },
+                        enciclopedia = enciclopedia,
+                        setEnciclopedia = { enciclopedia = it }
+                    )
+                    "enciclopedia" -> PantallaEnciclopedia(
+                        enciclopedia = enciclopedia,
+                        setEnciclopedia = { enciclopedia = it }
+                    )
                     "actividades" -> PantallaActividades()
                     "estadistica" -> PantallaEstadistica()
                 }
@@ -187,15 +194,35 @@ data class Actividad(
 
 //Agregar en la enciclopedia la informacion necesaria
 
+// 📂 Enciclopedia
 data class CarpetaEnciclopedia(
     val nombreCurso: String,
-    val sesiones: MutableList<String> = mutableListOf() // más adelante pondrás documentos, imágenes, etc.
+    val sesiones: MutableList<SesionEnciclopedia> = mutableListOf()
+)
+
+// 📖 Sesiones dentro del curso
+data class SesionEnciclopedia(
+    val titulo: String,
+    val descripcion: String = "",
+    val infoImportante: String = "",
+    val materiales: MutableList<String> = mutableListOf()
+)
+
+
+// 📌 Materiales dentro de cada sesión
+data class MaterialEnciclopedia(
+    val tipo: String,   // "documento", "imagen", "enlace"
+    val contenido: String // puede ser ruta de archivo, url, etc.
 )
 
 
 @Composable
-fun PantallaAgenda() {
-    var cursos by remember { mutableStateOf(listOf<Curso>()) }
+fun PantallaAgenda(
+    cursos: List<Curso>,
+    setCursos: (List<Curso>) -> Unit,
+    enciclopedia: List<CarpetaEnciclopedia>,
+    setEnciclopedia: (List<CarpetaEnciclopedia>) -> Unit
+) {
     var actividades by remember { mutableStateOf(listOf(
         Actividad("Lunes", "Entrega tarea 1", "Matemática", "Sesión 1", "Documento PDF"),
         Actividad("Martes", "Estudio capítulo 2", "Física", "Sesión 2", "Video"),
@@ -205,9 +232,10 @@ fun PantallaAgenda() {
     var mostrarDialogo by remember { mutableStateOf(false) }
     var nombreCurso by remember { mutableStateOf("") }
     var docenteCurso by remember { mutableStateOf("") }
-    var diaCurso by remember { mutableStateOf("0") }   // 0 = lunes
+    var diaCurso by remember { mutableStateOf("0") }
     var horaInicio by remember { mutableStateOf("8") }
     var horaFin by remember { mutableStateOf("10") }
+    var agregarEnciclopedia by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -215,7 +243,6 @@ fun PantallaAgenda() {
             .padding(16.dp)
             .verticalScroll(rememberScrollState())
     ) {
-
         // Botón para abrir formulario de agregar curso
         Button(onClick = { mostrarDialogo = true }) {
             Text("Crear Curso")
@@ -229,15 +256,14 @@ fun PantallaAgenda() {
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Aquí iría tu bloque de actividades
-        // Actividades Semanales con scroll horizontal y vertical
+        // Cuadro de actividades
         Text("Actividades Semanales", style = MaterialTheme.typography.titleMedium)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(250.dp)
                 .border(1.dp, Color.Gray)
-                .horizontalScroll(rememberScrollState()) // Scroll horizontal
+                .horizontalScroll(rememberScrollState())
         ) {
             Column {
                 // Encabezado
@@ -287,28 +313,71 @@ fun PantallaAgenda() {
             title = { Text("Nuevo Curso") },
             text = {
                 Column {
-                    OutlinedTextField(value = nombreCurso, onValueChange = { nombreCurso = it }, label = { Text("Nombre") })
-                    OutlinedTextField(value = docenteCurso, onValueChange = { docenteCurso = it }, label = { Text("Docente") })
-                    OutlinedTextField(value = diaCurso, onValueChange = { diaCurso = it }, label = { Text("Día (0=Lun,1=Mar,2=Mi,3=J,4=V)") })
-                    OutlinedTextField(value = horaInicio, onValueChange = { horaInicio = it }, label = { Text("Hora Inicio (ej: 8)") })
-                    OutlinedTextField(value = horaFin, onValueChange = { horaFin = it }, label = { Text("Hora Fin (ej: 10)") })
+                    OutlinedTextField(
+                        value = nombreCurso,
+                        onValueChange = { nombreCurso = it },
+                        label = { Text("Nombre") }
+                    )
+                    OutlinedTextField(
+                        value = docenteCurso,
+                        onValueChange = { docenteCurso = it },
+                        label = { Text("Docente") }
+                    )
+                    OutlinedTextField(
+                        value = diaCurso,
+                        onValueChange = { diaCurso = it },
+                        label = { Text("Día (0=Lun,1=Mar,2=Mi,3=J,4=V)") }
+                    )
+                    OutlinedTextField(
+                        value = horaInicio,
+                        onValueChange = { horaInicio = it },
+                        label = { Text("Hora Inicio (ej: 8)") }
+                    )
+                    OutlinedTextField(
+                        value = horaFin,
+                        onValueChange = { horaFin = it },
+                        label = { Text("Hora Fin (ej: 10)") }
+                    )
+
+                    Spacer(Modifier.height(12.dp))
+
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(
+                            checked = agregarEnciclopedia,
+                            onCheckedChange = { agregarEnciclopedia = it }
+                        )
+                        Text("Agregar también a la Enciclopedia")
+                    }
                 }
             },
             confirmButton = {
                 Button(onClick = {
-                    cursos = cursos + Curso(
-                        nombre = nombreCurso,
-                        docente = docenteCurso,
-                        dia = diaCurso.toIntOrNull() ?: 0,
-                        horaInicio = horaInicio.toIntOrNull() ?: 8,
-                        horaFin = horaFin.toIntOrNull() ?: 10
+                    // Guardar curso en Agenda
+                    setCursos(
+                        cursos + Curso(
+                            nombre = nombreCurso,
+                            docente = docenteCurso,
+                            dia = diaCurso.toIntOrNull() ?: 0,
+                            horaInicio = horaInicio.toIntOrNull() ?: 8,
+                            horaFin = horaFin.toIntOrNull() ?: 10
+                        )
                     )
+
+                    // Guardar curso en Enciclopedia si se marcó
+                    if (agregarEnciclopedia) {
+                        setEnciclopedia(
+                            enciclopedia + CarpetaEnciclopedia(nombreCurso = nombreCurso)
+                        )
+                    }
+
+                    // Reset
                     mostrarDialogo = false
                     nombreCurso = ""
                     docenteCurso = ""
                     diaCurso = "0"
                     horaInicio = "8"
                     horaFin = "10"
+                    agregarEnciclopedia = false
                 }) {
                     Text("Guardar")
                 }
@@ -319,9 +388,7 @@ fun PantallaAgenda() {
                 }
             }
         )
-
     }
-
 }
 
 
@@ -386,9 +453,106 @@ fun HorarioCuadro(cursos: List<Curso>) {
 // ========== BOTON DE ENCICLOPEDIA FUNCIONALIDAD ==========
 
 @Composable
-fun PantallaEnciclopedia() {
-    Text(text = "Enciclopedia de contenidos")
+fun PantallaEnciclopedia(
+    enciclopedia: List<CarpetaEnciclopedia>,
+    setEnciclopedia: (List<CarpetaEnciclopedia>) -> Unit
+) {
+    var mostrarDialogoAgregar by remember { mutableStateOf(false) }
+
+    Column(modifier = Modifier.padding(16.dp)) {
+        Text(text = "Enciclopedia de contenidos", style = MaterialTheme.typography.titleMedium)
+        Spacer(Modifier.height(8.dp))
+
+        // Botón para agregar un nuevo curso
+        Button(onClick = { mostrarDialogoAgregar = true }) {
+            Text("Agregar Curso")
+        }
+
+        Spacer(Modifier.height(16.dp))
+
+        // Lista de cursos en enciclopedia
+        enciclopedia.forEachIndexed { index, curso ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(curso.nombreCurso, modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold)
+
+                Spacer(Modifier.width(8.dp))
+
+                // Opciones Ver / Editar / Eliminar
+                Button(onClick = { /* Abrir sesión/Ver curso */ }) { Text("Ver") }
+                Spacer(Modifier.width(4.dp))
+                Button(onClick = { /* Editar curso */ }) { Text("Editar") }
+                Spacer(Modifier.width(4.dp))
+                Button(onClick = {
+                    setEnciclopedia(enciclopedia.filterIndexed { i,_ -> i != index })
+                }) { Text("Eliminar") }
+            }
+        }
+    }
+
+    // Diálogo para agregar curso
+    if (mostrarDialogoAgregar) {
+        var nombreCurso by remember { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = { mostrarDialogoAgregar = false },
+            title = { Text("Agregar Curso a Enciclopedia") },
+            text = {
+                Column {
+                    OutlinedTextField(
+                        value = nombreCurso,
+                        onValueChange = { nombreCurso = it },
+                        label = { Text("Nombre del Curso") }
+                    )
+                }
+            },
+            confirmButton = {
+                Button(onClick = {
+                    setEnciclopedia(enciclopedia + CarpetaEnciclopedia(nombreCurso = nombreCurso))
+                    mostrarDialogoAgregar = false
+                }) {
+                    Text("Guardar")
+                }
+            },
+            dismissButton = {
+                Button(onClick = { mostrarDialogoAgregar = false }) { Text("Cancelar") }
+            }
+        )
+    }
 }
+
+@Composable
+fun DialogoAgregarSesion(
+    curso: CarpetaEnciclopedia,
+    setCurso: (CarpetaEnciclopedia) -> Unit
+) {
+    var nombreSesion by remember { mutableStateOf("") }
+    var descripcion by remember { mutableStateOf("") }
+    var infoImportante by remember { mutableStateOf("") }
+    var materiales by remember { mutableStateOf(mutableListOf<String>()) }
+
+    Column {
+        OutlinedTextField(value = nombreSesion, onValueChange = { nombreSesion = it }, label = { Text("Nombre de la Semana / Clase") })
+        OutlinedTextField(value = descripcion, onValueChange = { descripcion = it }, label = { Text("Descripción") })
+        OutlinedTextField(value = infoImportante, onValueChange = { infoImportante = it }, label = { Text("Información Importante") })
+
+        // Aquí podrías agregar botones para cargar documentos, imágenes o enlaces
+        Button(onClick = { materiales.add("Documento ejemplo.pdf") }) { Text("Agregar Material") }
+
+        Spacer(Modifier.height(8.dp))
+        Button(onClick = {
+            val nuevaSesion = SesionEnciclopedia(titulo = nombreSesion, descripcion = descripcion, infoImportante = infoImportante, materiales = materiales)
+            curso.sesiones.add(nuevaSesion)
+            setCurso(curso)
+        }) { Text("Guardar Sesión") }
+    }
+}
+
+
+
 
 // ========== BOTON DE ACTIVIDADES FUNCIONALIDAD ==========
 
